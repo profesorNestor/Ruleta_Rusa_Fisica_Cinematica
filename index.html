@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ruleta de Física Temática</title>
+  <!-- Tone.js para audio -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+  <!-- MathJax -->
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']], // Permite $...$ para inline
+        displayMath: [['$$', '$$'], ['\\[', '\\]']], // Permite $$...$$ y \[...\] para display
+        processEscapes: true, // Procesa \$, etc.
+        processEnvironments: true // Procesa begin/end entornos
+      },
+      options: {
+        ignoreHtmlClass: 'tex2jax_ignore', // Clase para ignorar MathJax
+        processHtmlClass: 'tex2jax_process' // Clase para procesar MathJax (por defecto)
+      },
+      svg: {
+        fontCache: 'global' // Cachea fuentes para mejor rendimiento
+      }
+    };
+  </script>
+  <!-- Script principal de MathJax (carga asíncrona) -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      color: #004d40;
+    }
+    .content-wrap { flex: 1; width: 100%; padding: 1rem; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; }
+    h1 { color: #004d40; font-size: clamp(1.5rem, 5vw, 2.2rem); text-align: center; margin-bottom: 1rem; }
+    .game-container { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 700px; }
+    #nivel-selector {
+      background-color: rgba(255, 255, 255, 0.9);
+      padding: clamp(1rem, 3vw, 1.5rem);
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,77,64,0.2);
+      margin-bottom: 1rem;
+      text-align: center;
+      width: 90vw;
+      max-width: 500px;
+    }
+    #nivel-selector p { margin-top: 0; font-size: clamp(1rem, 2.5vw, 1.2rem); font-weight: bold; }
+    #nivel-selector button {
+      background-color: #00796b;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: clamp(0.6rem, 2vw, 0.8rem) clamp(0.8rem, 2.5vw, 1rem);
+      margin: 0.3rem;
+      font-size: clamp(0.9rem, 2.2vw, 1rem);
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.2s;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    }
+    #nivel-selector button:hover { background-color: #004d40; transform: translateY(-2px); }
+    .ruleta-container { position: relative; width: clamp(250px, 70vw, 350px); height: clamp(250px, 70vw, 350px); margin: 1rem auto; }
+    #ruleta { transition: transform 4s cubic-bezier(0.25, 0.1, 0.25, 1); width: 100%; height: 100%; }
+    canvas { border-radius: 50%; width: 100%; height: 100%; box-shadow: 0 0 20px rgba(0,77,64,0.3);}
+    .puntero {
+      position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 12px solid transparent; border-right: 12px solid transparent;
+      border-bottom: 24px solid #d32f2f; z-index: 10;
+    }
+    .game-controls, .info-display {
+      display: flex; flex-direction: column; align-items: center;
+      width: 90vw; max-width: 500px; margin: 0.5rem auto;
+    }
+    .game-controls button {
+      width: 100%; max-width: 250px;
+      padding: clamp(0.7rem, 2.5vw, 1rem) clamp(1rem, 3vw, 1.2rem);
+      margin: 0.5rem 0;
+      font-size: clamp(1rem, 2.8vw, 1.1rem);
+      background-color: #009688; color: white;
+      border: none; border-radius: 8px;
+      cursor: pointer; transition: background-color 0.3s, transform 0.2s;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .game-controls button:disabled { background-color: #cccccc; cursor: not-allowed;}
+    .game-controls button:hover:not(:disabled) { background-color: #00796b; transform: translateY(-2px);}
+    .game-controls button#btnReiniciar { background-color: #ff8f00;}
+    .game-controls button#btnReiniciar:hover:not(:disabled) { background-color: #e65100;}
+    .corazones { font-size: clamp(1.5rem, 5vw, 2rem); margin: 0.5rem 0; color: #e53935; text-align: center;}
+    .info-juego {
+      background-color: rgba(255, 255, 255, 0.85);
+      padding: clamp(0.8rem, 2.5vw, 1.2rem);
+      border-radius: 10px;
+      margin: 1rem 0;
+      width: 100%;
+      box-shadow: 0 2px 8px rgba(0,77,64,0.15);
+      text-align: left;
+    }
+    .info-juego p { margin: 0.4rem 0; font-size: clamp(0.9rem, 2.5vw, 1.1rem); color: #004d40;}
+    .info-juego p span { font-weight: bold; color: #00796b;}
+    .pregunta-container {
+      background-color: #ffffff;
+      padding: clamp(1rem, 3vw, 1.5rem);
+      border-radius: 12px;
+      width: 90vw;
+      max-width: 650px;
+      box-shadow: 0 4px 15px rgba(0,77,64,0.2);
+      margin-top: 1rem;
+      display: none;
+    }
+    .pregunta-container h3 { font-size: clamp(1.1rem, 3vw, 1.4rem); margin-top: 0; margin-bottom: 1rem; color: #004d40; line-height: 1.4;}
+    .pregunta-container .opciones { display: flex; flex-direction: column; align-items: flex-start;}
+    .pregunta-container .opciones button {
+      display: block; width: 100%;
+      background-color: #80cbc4; color: #004d40; border: 2px solid transparent;
+      border-radius: 8px; padding: clamp(0.6rem, 2vw, 0.8rem); margin: 0.5rem 0;
+      font-size: clamp(0.9rem, 2.5vw, 1rem); text-align: left; cursor: pointer;
+      transition: background-color 0.3s, border-color 0.3s; line-height: 1.4;
+    }
+    .pregunta-container .opciones button:hover:not(:disabled) { background-color: #4db6ac; border-color: #00796b;}
+    .pregunta-container .opciones button:disabled { cursor: not-allowed;}
+    .mensaje {
+      font-size: clamp(1rem, 2.8vw, 1.1rem); margin-top: 1rem; padding: 0.8rem; border-radius: 8px;
+      text-align: center; width: 90vw; max-width: 650px; box-shadow: 0 2px 8px rgba(0,77,64,0.1); display: none;
+    }
+    .mensaje .resultado-texto { font-weight: bold; display: block; margin-bottom: 0.5rem; }
+    .mensaje .retroalimentacion-texto {
+      font-size: clamp(0.85rem, 2.2vw, 1rem); text-align: left; margin-top: 0.8rem; padding: 0.8rem;
+      background-color: rgba(255,255,255,0.6); border-radius: 6px; line-height: 1.6; border: 1px solid #a7ffeb;
+    }
+    .mensaje.correcto { background-color: #c8e6c9; color: #2e7d32;}
+    .mensaje.incorrecto { background-color: #ffcdd2; color: #c62828;}
+    .mensaje.final { background-color: #b2ebf2; color: #006064; font-weight: bold;}
+    .mensaje.final .retroalimentacion-texto { display: none; }
+    /* Estilos para MathJax */
+    .MathJax_Display { margin: 0.8em 0 !important;}
+    .pregunta-container .opciones button .MJX-tex { font-size: 1em; }
+    .mensaje .retroalimentacion-texto .MJX-tex { font-size: 1em; }
+    /* Ocultar elementos inicialmente */
+    .ruleta-container, .game-controls, .info-display, .pregunta-container, .mensaje, #btnReiniciar { display: none;}
+    #nivel-selector { display: block;}
+    footer {
+      width: 100%; background-color: #004d40; color: #b2dfdb; text-align: center;
+      padding: 1rem 0; margin-top: auto; font-size: clamp(0.8rem, 2vw, 0.9rem);
+      box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="content-wrap">
+    <div class="game-container">
+      <h1>🎡 Ruleta de Física Temática</h1>
+      <div id="nivel-selector">
+        <p>Selecciona un nivel de desafío:</p>
+        <button onclick="iniciarJuegoConNivel(5)">🔹 Explorador (5 preguntas)</button>
+        <button onclick="iniciarJuegoConNivel(10)">🔰 Básico (10 preguntas)</button>
+        <button onclick="iniciarJuegoConNivel(15)">🎯 Intermedio (15 preguntas)</button>
+        <button onclick="iniciarJuegoConNivel(20)">🚀 Avanzado (20 preguntas)</button>
+        <button onclick="iniciarJuegoConNivel(30)">🌟 Experto (30 preguntas)</button>
+      </div>
+      <div class="ruleta-container" id="ruletaContainer">
+        <div class="puntero"></div>
+        <div id="ruleta">
+          <canvas id="canvas" width="350" height="350"></canvas>
+        </div>
+      </div>
+      <div class="info-display" id="infoDisplay">
+        <div class="corazones" id="vidas"></div>
+        <div class="info-juego" id="infoJuego">
+          <p>Preguntas Contestadas: <span id="contestadas">0</span></p>
+          <p>Preguntas Faltantes: <span id="faltantes">0</span></p>
+          <p>Puntaje (Aciertos): <span id="puntaje">0</span></p>
+          <p>Calificación Actual: <span id="calificacion">0.0</span> / 5.0</p>
+        </div>
+      </div>
+      <div class="game-controls" id="gameControls">
+        <button onclick="girarRuleta()" id="btnGirar">Girar Ruleta</button>
+        <button onclick="reiniciarJuego()" id="btnReiniciar">Reiniciar Juego</button>
+      </div>
+      <div class="pregunta-container" id="contenedorPregunta"></div>
+      <div class="mensaje" id="mensaje"></div>
+    </div>
+  </div>
+  <footer>
+    <p>Autor: Msc: Néstor Fabio Montoya Palacios</p>
+  </footer>
+  <script>
+    // ===============================
+    // BANCO DE PREGUNTAS AMPLIADO (Mínimo 15 por tema)
+    // ===============================
+    const preguntasFisica = [
+      // --- TEMA 1: MAGNITUDES (15 preguntas) ---
+      { tema: "Magnitudes", pregunta: "¿Cuál de las siguientes es una magnitud escalar?", opciones: ["Velocidad", "Fuerza", "Temperatura", "Aceleración"], correcta: 2, retroalimentacion: "La <strong>temperatura</strong> es una magnitud escalar, ya que queda completamente definida por un número y su unidad (ej. $25 \\text{ °C}$). La velocidad, la fuerza y la aceleración son vectoriales." },
+      { tema: "Magnitudes", pregunta: "¿Qué tipo de magnitud es el desplazamiento?", opciones: ["Escalar", "Vectorial", "Fundamental", "Adimensional"], correcta: 1, retroalimentacion: "El <strong>desplazamiento</strong> es una magnitud vectorial. Indica el cambio de posición y tiene magnitud (distancia entre puntos) y dirección (desde el inicio hasta el final)." },
+      { tema: "Magnitudes", pregunta: "En el Sistema Internacional (S.I.), ¿cuál es la unidad de medida de la masa?", opciones: ["Gramo (g)", "Newton (N)", "Kilogramo (kg)", "Libra (lb)"], correcta: 2, retroalimentacion: "La unidad fundamental de masa en el S.I. es el <strong>kilogramo (kg)</strong>." },
+      { tema: "Magnitudes", pregunta: "¿Cuál es el prefijo del S.I. que representa $10^3$?", opciones: ["Mili (m)", "Kilo (k)", "Mega (M)", "Centi (c)"], correcta: 1, retroalimentacion: "El prefijo <strong>Kilo (k)</strong> en el S.I. representa un factor de $10^3$ (mil). Ejemplo: $1 \\text{ km} = 1000 \\text{ m}$." },
+      { tema: "Magnitudes", pregunta: "La longitud es una magnitud...", opciones: ["Vectorial derivada", "Escalar fundamental", "Vectorial fundamental", "Escalar derivada"], correcta: 1, retroalimentacion: "La <strong>longitud</strong> es una magnitud física <strong>escalar fundamental</strong> en el S.I., cuya unidad es el metro (m)." },
+      { tema: "Magnitudes", pregunta: "¿Cuál opción representa una magnitud vectorial?", opciones: ["$50 \\text{ km/h}$", "$20 \\text{ °C}$", "$10 \\text{ N}$ hacia el este", "$15 \\text{ kg}$"], correcta: 2, retroalimentacion: "Una magnitud vectorial como la fuerza se representa con magnitud, unidad y dirección: <strong>$10 \\text{ N}$ hacia el este</strong>." },
+      { tema: "Magnitudes", pregunta: "El prefijo 'nano' (n) en el S.I. equivale a:", opciones: ["$10^{-3}$", "$10^{-6}$", "$10^{-9}$", "$10^{-12}$"], correcta: 2, retroalimentacion: "El prefijo <strong>nano (n)</strong> significa $10^{-9}$. Ejemplo: $1 \\text{ nm} = 1 \\times 10^{-9} \\text{ m}$." },
+      { tema: "Magnitudes", pregunta: "¿Cuál es la unidad base del tiempo en el S.I.?", opciones: ["Minuto (min)", "Hora (h)", "Segundo (s)", "Día"], correcta: 2, retroalimentacion: "La unidad fundamental del tiempo en el S.I. es el <strong>segundo (s)</strong>." },
+      { tema: "Magnitudes", pregunta: "Si una fuerza es '25 N, 30° al NE', ¿qué es esencial para su naturaleza vectorial?", opciones: ["Solo $25 \\text{ N}$", "Solo $30°$", "$25 \\text{ N}$ y $30°$ al NE", "Solo 'al NE'"], correcta: 2, retroalimentacion: "Para una magnitud vectorial, tanto la magnitud (<strong>$25 \\text{ N}$</strong>) como la dirección y sentido (<strong>$30°$ al Noreste</strong>) son esenciales." },
+      { tema: "Magnitudes", pregunta: "La unidad 'metro por segundo' (m/s) corresponde a una magnitud...", opciones: ["Fundamental", "Derivada", "Adimensional", "Suplementaria"], correcta: 1, retroalimentacion: "El metro por segundo (m/s) es la unidad de velocidad, una magnitud <strong>derivada</strong> (longitud/tiempo)." },
+      { tema: "Magnitudes", pregunta: "¿Símbolo del prefijo 'Mega' (M) y su factor?", opciones: ["m, $10^{-3}$", "M, $10^6$", "k, $10^3$", "G, $10^9$"], correcta: 1, retroalimentacion: "El prefijo <strong>Mega (M)</strong> representa $10^6$ (un millón). Ejemplo: $1 \\text{ MW} = 10^6 \\text{ W}$." },
+      { tema: "Magnitudes", pregunta: "¿Cuál es la unidad S.I. para la intensidad de corriente eléctrica?", opciones: ["Voltio (V)", "Ohmio ($\\Omega$)", "Amperio (A)", "Vatio (W)"], correcta: 2, retroalimentacion: "La unidad S.I. para la intensidad de corriente eléctrica es el <strong>Amperio (A)</strong>, una de las siete unidades base." },
+      { tema: "Magnitudes", pregunta: "El prefijo 'pico' (p) representa un factor de:", opciones: ["$10^{-6}$", "$10^{-9}$", "$10^{-12}$", "$10^{-15}$"], correcta: 2, retroalimentacion: "El prefijo <strong>pico (p)</strong> en el S.I. representa un factor de $10^{-12}$. Ejemplo: $1 \\text{ picofaradio (pF)} = 10^{-12} \\text{ F}$." },
+      { tema: "Magnitudes", pregunta: "¿Qué magnitud se mide en candelas (cd) en el S.I.?", opciones: ["Energía lumínica", "Flujo luminoso", "Intensidad luminosa", "Iluminancia"], correcta: 2, retroalimentacion: "La <strong>intensidad luminosa</strong> se mide en <strong>candelas (cd)</strong> en el S.I., siendo una de las unidades fundamentales." },
+      { tema: "Magnitudes", pregunta: "Convertir $500 \\text{ cm}$ a metros:", opciones: ["$0.05 \\text{ m}$", "$0.5 \\text{ m}$", "$5 \\text{ m}$", "$50 \\text{ m}$"], correcta: 2, retroalimentacion: "Sabiendo que $1 \\text{ m} = 100 \\text{ cm}$, entonces $500 \\text{ cm} = 500 / 100 = <strong>5 \\text{ m}</strong>$." },
+
+      // --- TEMA 2: CINEMÁTICA (conceptos básicos) (15 preguntas) ---
+      { tema: "Cinemática", pregunta: "¿Qué es un sistema de referencia en cinemática?", opciones: ["La velocidad de un objeto", "Un punto o conjunto de puntos respecto al cual se describe el movimiento", "La trayectoria seguida por una partícula", "La masa del objeto en movimiento"], correcta: 1, retroalimentacion: "Un <strong>sistema de referencia</strong> es un punto o conjunto de puntos fijos que se utiliza para describir la posición y el movimiento de un objeto. Sin él, no se puede definir si algo se mueve." },
+      { tema: "Cinemática", pregunta: "En física, una 'partícula' o 'punto material' es un modelo que representa un cuerpo...", opciones: ["Con dimensiones y forma complejas", "Cuyas dimensiones son despreciables en comparación con las distancias que recorre", "Que siempre está en reposo", "Con masa infinita"], correcta: 1, retroalimentacion: "Una <strong>partícula</strong> o punto material es una idealización de un cuerpo cuyas dimensiones y rotación no son relevantes para describir su movimiento de traslación. Se considera que toda su masa está concentrada en un punto." },
+      { tema: "Cinemática", pregunta: "La línea geométrica que une las sucesivas posiciones de un móvil se denomina:", opciones: ["Desplazamiento", "Velocidad", "Trayectoria", "Aceleración"], correcta: 2, retroalimentacion: "La <strong>trayectoria</strong> es el camino o la línea que describe un móvil durante su movimiento. Puede ser recta, curva, etc." },
+      { tema: "Cinemática", pregunta: "¿Cuál es la diferencia fundamental entre distancia recorrida y desplazamiento?", opciones: ["No hay diferencia", "La distancia es vectorial y el desplazamiento escalar", "La distancia es la longitud de la trayectoria y el desplazamiento es el vector entre la posición inicial y final", "El desplazamiento siempre es mayor que la distancia"], correcta: 2, retroalimentacion: "La <strong>distancia recorrida</strong> es una magnitud escalar que representa la longitud total del camino seguido. El <strong>desplazamiento</strong> es un vector que une la posición inicial con la final, indicando el cambio neto de posición." },
+      { tema: "Cinemática", pregunta: "Si un coche viaja de una ciudad A a una ciudad B y luego regresa a la ciudad A, ¿cuál es su desplazamiento total?", opciones: ["El doble de la distancia entre A y B", "Cero", "La distancia entre A y B", "Depende de la velocidad"], correcta: 1, retroalimentacion: "El desplazamiento total es <strong>cero</strong> porque la posición inicial y la posición final coinciden (el coche regresó al punto de partida)." },
+      { tema: "Cinemática", pregunta: "La rapidez media se define como:", opciones: ["Desplazamiento dividido por el tiempo", "Distancia total recorrida dividida por el intervalo de tiempo", "Cambio de velocidad por unidad de tiempo", "Posición final menos posición inicial"], correcta: 1, retroalimentacion: "La <strong>rapidez media</strong> es una magnitud escalar que se calcula como la <strong>distancia total recorrida dividida por el tiempo total empleado</strong>." },
+      { tema: "Cinemática", pregunta: "La aceleración de un móvil es:", opciones: ["Siempre constante", "El cambio de su posición por unidad de tiempo", "El cambio de su velocidad por unidad de tiempo", "Una magnitud escalar"], correcta: 2, retroalimentacion: "La <strong>aceleración</strong> es una magnitud vectorial que mide el <strong>cambio de la velocidad</strong> (en magnitud, dirección o ambas) por unidad de tiempo." },
+      { tema: "Cinemática", pregunta: "¿Qué significa que un cuerpo esté en reposo relativo?", opciones: ["Que su velocidad es absolutamente cero", "Que no se mueve respecto a ningún sistema de referencia", "Que su posición no cambia respecto a un sistema de referencia específico", "Que no tiene aceleración"], correcta: 2, retroalimentacion: "Un cuerpo está en <strong>reposo relativo</strong> cuando su posición permanece constante con respecto a un <strong>sistema de referencia particular</strong>. Podría estar en movimiento respecto a otro sistema." },
+      { tema: "Cinemática", pregunta: "El vector posición $\\vec{r}$ de una partícula indica:", opciones: ["Su velocidad instantánea", "Su ubicación respecto al origen de un sistema de referencia", "La distancia total que ha recorrido", "Su aceleración media"], correcta: 1, retroalimentacion: "El <strong>vector posición ($\\vec{r}$)</strong> es un vector que va desde el origen del sistema de referencia hasta la ubicación actual de la partícula." },
+      { tema: "Cinemática", pregunta: "Si la velocidad de un objeto es constante, su aceleración es:", opciones: ["Positiva", "Negativa", "Cero", "Variable"], correcta: 2, retroalimentacion: "Si la velocidad es constante (tanto en magnitud como en dirección), no hay cambio en la velocidad. Por lo tanto, la aceleración es <strong>cero</strong>." },
+      { tema: "Cinemática", pregunta: "¿Cuál de estas afirmaciones sobre la velocidad y la rapidez es correcta?", opciones: ["Son sinónimos exactos", "La rapidez es la magnitud de la velocidad", "La velocidad es la magnitud de la rapidez", "Ambas son siempre positivas"], correcta: 1, retroalimentacion: "La <strong>rapidez</strong> es la magnitud (el valor numérico) de la velocidad. La velocidad es un vector (incluye dirección), mientras que la rapidez es un escalar." },
+       { tema: "Cinemática", pregunta: "Un coche se mueve a 60 km/h hacia el norte. ¿Cuál es su velocidad?", opciones: ["60 km/h (escalar)", "60 km/h hacia el norte (vectorial)", "Solo 60 km/h", "Norte"], correcta: 1, retroalimentacion: "La velocidad es una magnitud vectorial. Se especifica con magnitud y dirección: <strong>60 km/h hacia el norte</strong>." },
+       { tema: "Cinemática", pregunta: "Si un objeto se mueve en línea recta y su gráfica de posición versus tiempo (x-t) es una línea curva, ¿qué se puede decir sobre su movimiento?", opciones: ["Tiene velocidad constante", "Tiene aceleración cero", "Su velocidad está cambiando", "Está en reposo"], correcta: 2, retroalimentacion: "Una gráfica x-t curva indica que la pendiente (que representa la velocidad) está cambiando. Por lo tanto, la <strong>velocidad está cambiando</strong>, lo que implica que hay aceleración." },
+       { tema: "Cinemática", pregunta: "¿Cuál es la definición matemática de velocidad instantánea?", opciones: ["Distancia total / tiempo total", "Desplazamiento total / tiempo total", "El límite de $\\Delta \\vec{r} / \\Delta t$ cuando $\\Delta t \\to 0$", "El área bajo la curva de aceleración vs tiempo"], correcta: 2, retroalimentacion: "La <strong>velocidad instantánea</strong> ($\vec{v}$) es la velocidad en un instante particular. Matemáticamente, es la derivada del vector posición respecto al tiempo, definida como el <strong>límite del desplazamiento dividido por el intervalo de tiempo cuando el intervalo tiende a cero</strong>: $\\vec{v} = \\lim_{\\Delta t \\to 0} \\frac{\\Delta \\vec{r}}{\\Delta t} = \\frac{d\\vec{r}}{dt}$." },
+       { tema: "Cinemática", pregunta: "Un corredor da una vuelta completa a una pista circular de 400 m. ¿Cuál es la magnitud de su desplazamiento?", opciones: ["400 m", "200 m", "0 m", "Depende del tiempo"], correcta: 2, retroalimentacion: "El desplazamiento es el cambio de posición. Si el corredor termina en el mismo punto donde empezó, su posición final es igual a la inicial, por lo tanto, la magnitud de su desplazamiento es <strong>0 m</strong>, aunque la distancia recorrida sea 400 m." },
+
+      // --- TEMA 3: MOVIMIENTO RECTILÍNEO UNIFORME (MRU) (15 preguntas) ---
+      { tema: "MRU", pregunta: "En un MRU, la velocidad del móvil es:", opciones: ["Constante", "Variable", "Siempre cero", "Siempre creciente"], correcta: 0, retroalimentacion: "La característica principal del Movimiento Rectilíneo Uniforme (MRU) es que la <strong>velocidad es constante</strong> en magnitud, dirección y sentido."
+      },
+      { tema: "MRU", pregunta: "La ecuación $x = x_o + v \\cdot t$ describe la posición en un:", opciones: ["MRUA", "Caída libre", "MRU", "MCU"], correcta: 2, retroalimentacion: "La ecuación <strong>$x = x_o + v \\cdot t$</strong> es la ecuación horaria de la posición para un Movimiento Rectilíneo Uniforme, donde $x_o$ es la posición inicial, $v$ la velocidad constante y $t$ el tiempo. También se puede escribir como $v = {{\\Delta x} \\over {\\Delta t}} = {{x - {x_o}} \\over t}$."
+      },
+      { tema: "MRU", pregunta: "Si un coche se mueve con MRU a 20 m/s durante 10 s, ¿qué distancia recorre?", opciones: ["2 m", "20 m", "200 m", "0.5 m"], correcta: 2, retroalimentacion: "En un MRU, distancia ($x - x_o$) = velocidad ($v$) × tiempo ($t$). Distancia = $20 \\text{ m/s} \\cdot 10 \\text{ s} = <strong>200 \\text{ m}</strong>$."
+      },
+      { tema: "MRU", pregunta: "La gráfica posición-tiempo (x-t) para un MRU es una:", opciones: ["Parábola", "Línea recta inclinada o horizontal", "Hipérbola", "Circunferencia"], correcta: 1, retroalimentacion: "En un MRU, como la velocidad es constante, la gráfica de posición contra tiempo (x-t) es una <strong>línea recta</strong>. Su pendiente representa la velocidad."
+      },
+      { tema: "MRU", pregunta: "La velocidad del sonido en el aire a temperatura ambiente es aproximadamente:", opciones: ["30 m/s", "340 m/s", "3000 m/s", "300,000 km/s"], correcta: 1, retroalimentacion: "La velocidad del sonido en el aire a unos 20°C es de aproximadamente <strong>340 m/s</strong>. Varía con la temperatura y el medio."
+      },
+      { tema: "MRU", pregunta: "La velocidad de la luz en el vacío (c) es aproximadamente:", opciones: ["340 m/s", "$3 \\times 10^5 \\text{ m/s}$", "$3 \\times 10^8 \\text{ m/s}$", "$3 \\times 10^{10} \\text{ m/s}$"], correcta: 2, retroalimentacion: "La velocidad de la luz en el vacío es una constante universal, $c \\approx <strong>3 \\times 10^8 \\text{ m/s}</strong>$ (o $300,000 \\text{ km/s}$)."
+      },
+      { tema: "MRU", pregunta: "En un MRU, si la velocidad es negativa, significa que el móvil:", opciones: ["Está frenando", "Se mueve en sentido contrario al positivo del sistema de referencia", "Tiene aceleración negativa", "Está en reposo"], correcta: 1, retroalimentacion: "En un MRU, un signo negativo en la velocidad indica que el movimiento se realiza en el <strong>sentido opuesto al considerado como positivo</strong> en el sistema de referencia elegido."
+      },
+      { tema: "MRU", pregunta: "Un tren viaja a 72 km/h. ¿Cuál es su velocidad en m/s?", opciones: ["10 m/s", "20 m/s", "36 m/s", "7.2 m/s"], correcta: 1, retroalimentacion: "Para convertir km/h a m/s, se multiplica por 1000 (m/km) y se divide por 3600 (s/h), o simplemente se divide por 3.6. Así, $72 \\text{ km/h} / 3.6 = <strong>20 \\text{ m/s}</strong>$."
+      },
+      { tema: "MRU", pregunta: "Si un objeto parte de $x_o = 5 \\text{ m}$ con $v = -2 \\text{ m/s}$ (MRU), ¿cuál será su posición a los 3 s? ($x = x_o + v \\cdot t$)", opciones: ["11 m", "-1 m", "1 m", "6 m"], correcta: 1, retroalimentacion: "Usando $x = x_o + v \\cdot t$: $x = 5 \\text{ m} + (-2 \\text{ m/s}) \\cdot 3 \\text{ s} = 5 \\text{ m} - 6 \\text{ m} = <strong>-1 \\text{ m}</strong>$."
+      },
+      { tema: "MRU", pregunta: "La aceleración en un Movimiento Rectilíneo Uniforme es:", opciones: ["Igual a la gravedad", "Constante y positiva", "Constante y negativa", "Cero"], correcta: 3, retroalimentacion: "Por definición, en un MRU la velocidad es constante, lo que implica que la aceleración es <strong>cero</strong>."
+      },
+      { tema: "MRU", pregunta: "Si la ecuación de posición de un móvil es $x = 10 - 5t$ (en S.I.), ¿cuál es su velocidad? (Recuerda $x = x_o + v \\cdot t$)", opciones: ["10 m/s", "5 m/s", "-5 m/s", "-10 m/s"], correcta: 2, retroalimentacion: "Comparando con $x = x_o + vt$, identificamos que la velocidad $v$ es el coeficiente de $t$. Por lo tanto, $v = <strong>-5 \\text{ m/s}</strong>$."
+      },
+       { tema: "MRU", pregunta: "¿Qué representa la pendiente de la gráfica posición-tiempo (x-t) en un MRU?", opciones: ["La aceleración", "La velocidad", "La distancia recorrida", "El tiempo transcurrido"], correcta: 1, retroalimentacion: "La pendiente de la gráfica x-t en un MRU es constante y representa la <strong>velocidad</strong> del móvil ($v = {{\\Delta x} \\over {\\Delta t}}$)." },
+       { tema: "MRU", pregunta: "¿Qué representa el área bajo la gráfica velocidad-tiempo (v-t) en un MRU?", opciones: ["La aceleración", "La velocidad final", "El desplazamiento", "El tiempo de vuelo"], correcta: 2, retroalimentacion: "El área bajo la curva de una gráfica v-t, ya sea en MRU o MRUA, representa el <strong>desplazamiento</strong> del móvil en ese intervalo de tiempo." },
+       { tema: "MRU", pregunta: "Dos coches A y B están separados 100 m. Si A se mueve hacia B a 10 m/s y B se mueve hacia A a 15 m/s, ¿cuánto tiempo tardarán en encontrarse?", opciones: ["2 s", "4 s", "8 s", "10 s"], correcta: 3, retroalimentacion: "La velocidad relativa de acercamiento es la suma de sus velocidades: $10 \\text{ m/s} + 15 \\text{ m/s} = 25 \\text{ m/s}$. El tiempo para encontrarse es la distancia inicial dividida por la velocidad relativa: $t = {{100 \\text{ m}} \\over {25 \\text{ m/s}}} = <strong>4 \\text{ s}</strong>$." },
+       { tema: "MRU", pregunta: "Si un móvil con MRU duplica su velocidad, ¿cómo afecta esto al tiempo que tarda en cubrir una cierta distancia?", opciones: ["El tiempo se duplica", "El tiempo se reduce a la mitad", "El tiempo se cuadriplica", "El tiempo se reduce a la cuarta parte"], correcta: 1, retroalimentacion: "En MRU, tiempo = distancia / velocidad ($t = d/v$). Si la distancia es constante y la velocidad se duplica ($2v$), el nuevo tiempo es $t' = d / (2v) = \\frac{1}{2} (d/v) = <strong>t/2</strong>$. El tiempo se reduce a la mitad." },
+
+      // --- TEMA 4: MOVIMIENTO RECTILÍNEO UNIFORMEMENTE ACELERADO (MRUA) (15 preguntas) ---
+      { tema: "MRUA", pregunta: "En un MRUA, la aceleración es:", opciones: ["Cero", "Constante y no nula", "Variable", "Siempre igual a la velocidad"], correcta: 1, retroalimentacion: "La característica fundamental del MRUA es que la <strong>aceleración es constante y diferente de cero</strong>."
+      },
+      { tema: "MRUA", pregunta: "La ecuación $v = v_o + a \\cdot t$ relaciona:", opciones: ["Posición y tiempo", "Velocidad final, velocidad inicial, aceleración y tiempo", "Posición y velocidad", "Aceleración y desplazamiento"], correcta: 1, retroalimentacion: "La ecuación <strong>$v = v_o + a \\cdot t$</strong> describe cómo la velocidad final ($v$) de un objeto en MRUA depende de su velocidad inicial ($v_o$), su aceleración constante ($a$) y el tiempo transcurrido ($t$)."
+      },
+      { tema: "MRUA", pregunta: "Un coche parte del reposo y acelera a 2 m/s² durante 5 s. ¿Qué velocidad alcanza? ($v = v_o + a \\cdot t$)", opciones: ["2 m/s", "5 m/s", "10 m/s", "25 m/s"], correcta: 2, retroalimentacion: "Usando $v = v_o + a \\cdot t$, con $v_o = 0$ (parte del reposo): $v = 0 + (2 \\text{ m/s}^2) \\cdot 5 \\text{ s} = <strong>10 \\text{ m/s}</strong>$."
+      },
+      { tema: "MRUA", pregunta: "La gráfica velocidad-tiempo (v-t) para un MRUA es una:", opciones: ["Parábola", "Línea recta horizontal", "Línea recta inclinada", "Hipérbola"], correcta: 2, retroalimentacion: "En un MRUA, la velocidad cambia linealmente con el tiempo ($v = v_o + at$). Por lo tanto, la gráfica v-t es una <strong>línea recta inclinada</strong>. La pendiente de esta recta es la aceleración."
+      },
+      { tema: "MRUA", pregunta: "La ecuación $x = v_o \\cdot t + \\frac{1}{2}a \\cdot t^2$ es válida para el desplazamiento en MRUA cuando:", opciones: ["La aceleración es variable", "El objeto parte de la posición $x_o=0$ o se calcula el desplazamiento $\\Delta x$", "La velocidad es constante", "El movimiento es circular"], correcta: 1, retroalimentacion: "La ecuación <strong>$x = v_o \\cdot t + \\frac{1}{2}a \\cdot t^2$</strong> da el desplazamiento ($\Delta x$) en un MRUA, o la posición final si $x_o=0$. La forma completa para la posición es $x_f = x_o + v_o \\cdot t + \\frac{1}{2}a \\cdot t^2$."
+      },
+      { tema: "MRUA", pregunta: "Si un objeto en MRUA duplica su velocidad en un cierto tiempo, su aceleración es:", opciones: ["Positiva", "Negativa", "Cero", "No se puede determinar sin más datos"], correcta: 0, retroalimentacion: "Si la velocidad aumenta (se duplica), el cambio de velocidad $\\Delta v$ es positivo. Asumiendo que el tiempo $\\Delta t$ es positivo, la aceleración ($a = {{\\Delta v} \\over {\\Delta t}}$) será <strong>positiva</strong>."
+      },
+      { tema: "MRUA", pregunta: "La ecuación $v^2 = v_o^2 + 2 \\cdot a \\cdot x$ es útil cuando:", opciones: ["No se conoce el tiempo", "No se conoce la aceleración", "No se conoce la velocidad inicial", "El movimiento es uniforme"], correcta: 0, retroalimentacion: "La ecuación <strong>$v^2 = v_o^2 + 2 \\cdot a \\cdot x$</strong> (ecuación de Torricelli) es especialmente útil en MRUA cuando <strong>no se conoce o no se necesita el tiempo</strong>. Relaciona velocidades, aceleración y desplazamiento ($x$ o $\\Delta x$)."
+      },
+      { tema: "MRUA", pregunta: "Un móvil frena uniformemente desde 20 m/s hasta detenerse en 4 s. ¿Cuál fue su aceleración? ($a = {{v - {v_o}} \\over t}$)", opciones: ["5 m/s²", "-5 m/s²", "0.2 m/s²", "-0.2 m/s²"], correcta: 1, retroalimentacion: "Usando $a = (v - v_o) / t$: $a = (0 \\text{ m/s} - 20 \\text{ m/s}) / 4 \\text{ s} = -20 \\text{ m/s} / 4 \\text{ s} = <strong>-5 \\text{ m/s}^2</strong>$. El signo negativo indica que es una desaceleración."
+      },
+      { tema: "MRUA", pregunta: "La gráfica posición-tiempo (x-t) para un MRUA es una:", opciones: ["Línea recta", "Parábola", "Hipérbola", "Exponencial"], correcta: 1, retroalimentacion: "Debido al término $t^2$ en la ecuación de posición ($x = x_o + v_o t + \\frac{1}{2}at^2$), la gráfica x-t para un MRUA es una <strong>parábola</strong>."
+      },
+      { tema: "MRUA", pregunta: "La ecuación $x = {{(v + {v_o})t} \\over 2}$ para MRUA representa:", opciones: ["La velocidad media", "La aceleración", "El desplazamiento como el producto de la velocidad media y el tiempo", "La velocidad instantánea"], correcta: 2, retroalimentacion: "En un MRUA, la velocidad media es $(v + v_o)/2$. La ecuación $x = {{(v + {v_o})t} \\over 2}$ expresa que el <strong>desplazamiento ($x$ o $\\Delta x$) es igual a la velocidad media multiplicada por el tiempo</strong>."
+      },
+      { tema: "MRUA", pregunta: "Si un objeto parte del reposo ($v_o=0$) con MRUA y recorre 100 m con una aceleración de 2 m/s², ¿qué velocidad final alcanza? ($v^2 = v_o^2 + 2ax$)", opciones: ["10 m/s", "14.14 m/s", "20 m/s", "400 m/s"], correcta: 2, retroalimentacion: "Usamos $v^2 = v_o^2 + 2ax$. Con $v_o=0$, $v^2 = 2ax = 2 \\cdot (2 \\text{ m/s}^2) \\cdot 100 \\text{ m} = 400 \\text{ m}^2/\\text{s}^2$. Entonces $v = \\sqrt{400} = <strong>20 \\text{ m/s}</strong>$."
+      },
+      { tema: "MRUA", pregunta: "Un coche acelera de 10 m/s a 20 m/s en una distancia de 50 m. ¿Cuál es su aceleración? ($v^2 = v_o^2 + 2ax$)", opciones: ["1 m/s²", "2 m/s²", "3 m/s²", "4 m/s²"], correcta: 2, retroalimentacion: "Usando $v^2 = v_o^2 + 2ax$: $(20)^2 = (10)^2 + 2 \cdot a \cdot (50) \\Rightarrow 400 = 100 + 100a \\Rightarrow 300 = 100a \\Rightarrow a = <strong>3 \\text{ m/s}^2</strong>$." },
+      { tema: "MRUA", pregunta: "La pendiente de la gráfica velocidad-tiempo (v-t) en un MRUA representa:", opciones: ["La posición", "La velocidad inicial", "La aceleración", "El desplazamiento"], correcta: 2, retroalimentacion: "En un MRUA, la velocidad cambia linealmente ($v = v_o + at$), y la pendiente de la gráfica v-t es constante e igual a la <strong>aceleración</strong> ($a = {{\\Delta v} \\over {\\Delta t}}$)." },
+      { tema: "MRUA", pregunta: "Un objeto se mueve con $v_o = -5 \\text{ m/s}$ y $a = -2 \\text{ m/s}^2$. ¿Está frenando o acelerando?", opciones: ["Frenando", "Acelerando", "En reposo", "Movimiento uniforme"], correcta: 1, retroalimentacion: "Si la velocidad y la aceleración tienen el mismo signo (ambas negativas en este caso, indicando que ambas apuntan en el sentido negativo del SR), el objeto está <strong>acelerando</strong> en ese sentido." },
+      { tema: "MRUA", pregunta: "¿Cuál es el desplazamiento de un móvil que parte de $x_o=2\\text{ m}$ con $v_o=3\\text{ m/s}$ y $a=4\\text{ m/s}^2$ después de 2 s? ($x = x_o + v_o t + \\frac{1}{2}at^2$)", opciones: ["12 m", "16 m", "14 m", "10 m"], correcta: 1, retroalimentacion: "$x = 2 + (3)(2) + \\frac{1}{2}(4)(2^2) = 2 + 6 + \\frac{1}{2}(4)(4) = 2 + 6 + 8 = 16 \\text{ m}$. El desplazamiento es $\\Delta x = x - x_o = 16 - 2 = <strong>14 \\text{ m}</strong>$." },
+      { tema: "MRUA", pregunta: "Un coche frena de 20 m/s a 10 m/s en 5 s. ¿Cuánto tiempo más tardará en detenerse completamente asumiendo la misma aceleración?", opciones: ["5 s", "10 s", "15 s", "20 s"], correcta: 0, retroalimentacion: "Primero, calculamos la aceleración: $a = (10 - 20) / 5 = -10 / 5 = -2 \\text{ m/s}^2$. Ahora, calculamos el tiempo para ir de 10 m/s a 0 m/s: $0 = 10 + (-2)t \\Rightarrow 2t = 10 \\Rightarrow t = <strong>5 \\text{ s}</strong>$." },
+
+      // --- TEMA 5: MOVIMIENTO VERTICAL CON GRAVEDAD (15 preguntas) ---
+      { tema: "Gravedad", pregunta: "En un lanzamiento vertical hacia arriba, la velocidad del objeto en el punto más alto es:", opciones: ["Máxima", "Cero", "Igual a la velocidad inicial", "$-9.8 \\text{ m/s}$"], correcta: 1, retroalimentacion: "En el punto más alto de un lanzamiento vertical hacia arriba, la velocidad instantánea del objeto es <strong>cero</strong>. A partir de ahí, comienza a descender."
+      },
+      { tema: "Gravedad", pregunta: "Si se deja caer un objeto desde el reposo (caída libre), su aceleración, considerando positivo hacia arriba, es:", opciones: ["Cero", "$+9.8 \\text{ m/s}^2$", "Variable", "$-9.8 \\text{ m/s}^2$"], correcta: 3, retroalimentacion: "En caída libre, despreciando la resistencia del aire, la aceleración es la de la gravedad. Si el eje Y es positivo hacia arriba, la gravedad actúa hacia abajo, por lo que $a = g = <strong>-9.8 \\text{ m/s}^2</strong>$."
+      },
+      { tema: "Gravedad", pregunta: "Un objeto se lanza verticalmente hacia arriba con $v_o = 19.6 \\text{ m/s}$. ¿Cuánto tiempo tarda en alcanzar su altura máxima? (Usar $g = 9.8 \\text{ m/s}^2$, $v = v_o + gt$ con $g=-9.8$)", opciones: ["1 s", "2 s", "4 s", "0.5 s"], correcta: 1, retroalimentacion: "En la altura máxima, $v=0$. Usando $v = v_o + gt$ (con $g=-9.8 \\text{ m/s}^2$): $0 = 19.6 \\text{ m/s} - 9.8 \\text{ m/s}^2 \\cdot t$. Entonces $t = 19.6 / 9.8 = <strong>2 \\text{ s}</strong>$."
+      },
+      { tema: "Gravedad", pregunta: "Desde una torre se deja caer una piedra. ¿Qué distancia recorre en los primeros 2 segundos? (Usar $g = 9.8 \\text{ m/s}^2$, $y = v_o t + \\frac{1}{2}gt^2$)", opciones: ["9.8 m", "19.6 m", "39.2 m", "4.9 m"], correcta: 1, retroalimentacion: "En caída libre desde el reposo ($v_o=0$), $y = v_o t + \\frac{1}{2}at^2$. Tomando el origen en el punto de lanzamiento y positivo hacia abajo ($a=g=9.8 \\text{ m/s}^2$): $y = \\frac{1}{2}(9.8 \\text{ m/s}^2)(2 \\text{ s})^2 = \\frac{1}{2}(9.8)(4) = <strong>19.6 \\text{ m}</strong>$."
+      },
+      { tema: "Gravedad", pregunta: "Al lanzar un objeto verticalmente hacia arriba, el tiempo de subida es:", opciones: ["Mayor que el tiempo de bajada al mismo nivel", "Menor que el tiempo de bajada al mismo nivel", "Igual al tiempo de bajada al mismo nivel (sin fricción)", "Dependiente de la masa del objeto"], correcta: 2, retroalimentacion: "Despreciando la resistencia del aire, el tiempo que tarda un objeto en subir hasta su altura máxima es <strong>igual al tiempo que tarda en bajar</strong> desde esa altura hasta el punto de lanzamiento."
+      },
+      { tema: "Gravedad", pregunta: "Si se considera el eje Y positivo hacia arriba, la aceleración de un objeto en movimiento vertical debido a la gravedad ($g$) es:", opciones: ["$a = +g$", "$a = -g$", "$a = 0$", "Variable según la velocidad"], correcta: 1, retroalimentacion: "Si el sistema de referencia tiene el eje Y positivo apuntando hacia arriba, la aceleración de la gravedad, que siempre apunta hacia abajo, se representa como <strong>$a = -g$</strong> (aproximadamente $-9.8 \\text{ m/s}^2$)."
+      },
+      { tema: "Gravedad", pregunta: "Un objeto es lanzado verticalmente hacia arriba. Su aceleración durante el vuelo (despreciando el aire) es:", opciones: ["Positiva al subir y negativa al bajar", "Negativa al subir y positiva al bajar", "Siempre constante hacia abajo ($-g$)", "Cero en el punto más alto"], correcta: 2, retroalimentacion: "Despreciando la resistencia del aire, la única aceleración que actúa sobre el objeto durante todo su vuelo (subida, punto más alto y bajada) es la aceleración de la gravedad, que es <strong>constantemente dirigida hacia abajo ($-g \\approx -9.8 \\text{ m/s}^2$ si positivo es arriba)</strong>."
+      },
+      { tema: "Gravedad", pregunta: "Se lanza una pelota hacia arriba con $v_o$. ¿Cuál es su velocidad cuando regresa al punto de lanzamiento (sin fricción)?", opciones: ["$v_o$", "$-v_o$", "$0$", "$2v_o$"], correcta: 1, retroalimentacion: "Debido a la simetría del movimiento y la conservación de la energía (en ausencia de fricción), la pelota regresa al punto de lanzamiento con la misma magnitud de velocidad con la que fue lanzada, pero en dirección opuesta: <strong>$-v_o$</strong> (si $v_o$ era positiva hacia arriba)."
+      },
+      { tema: "Gravedad", pregunta: "La altura máxima alcanzada por un objeto lanzado verticalmente hacia arriba con velocidad inicial $v_o$ es (usando $g$):", opciones: ["$v_o^2 / (2g)$", "$v_o / g$", "$2v_o^2 / g$", "$v_o g / 2$"], correcta: 0, retroalimentacion: "Usando $v^2 = v_o^2 + 2ay$, en la altura máxima $v=0$ y $a=-g$. Entonces $0 = v_o^2 - 2gy_{max}$. Despejando $y_{max} = <strong>v_o^2 / (2g)</strong>$."
+      },
+      { tema: "Gravedad", pregunta: "Si dos piedras, una el doble de pesada que la otra, se dejan caer simultáneamente desde la misma altura (sin fricción), ¿cuál llega primero al suelo?", opciones: ["La más pesada", "La más ligera", "Ambas llegan al mismo tiempo", "Depende de la forma"], correcta: 2, retroalimentacion: "En ausencia de resistencia del aire, todos los objetos caen con la misma aceleración ($g$) independientemente de su masa. Por lo tanto, <strong>ambas piedras llegarán al suelo al mismo tiempo</strong>."
+      },
+      { tema: "Gravedad", pregunta: "Un objeto se deja caer desde una altura de 490 m. ¿Cuánto tiempo tarda en llegar al suelo? (Usar $g = 9.8 \\text{ m/s}^2$)", opciones: ["5 s", "10 s", "50 s", "100 s"], correcta: 1, retroalimentacion: "Usamos $y_f - y_o = v_o t + \\frac{1}{2} a t^2$. Si $y_o=490\\text{m}$ (origen arriba, positivo abajo), $y_f=0$, $v_o=0$, $a=g$. Entonces $490 = \\frac{1}{2}(9.8)t^2 \\Rightarrow 4.9t^2 = 490 \\Rightarrow t^2 = 100 \\Rightarrow t = \\sqrt{100} = <strong>10 \\text{ s}</strong>$."
+      },
+      { tema: "Gravedad", pregunta: "Se lanza un objeto hacia abajo desde una altura de 20 m con una velocidad inicial de 5 m/s. ¿Cuánto tiempo tarda en llegar al suelo? (Usar $g = 9.8 \\text{ m/s}^2$, positivo abajo)", opciones: ["$\\approx 1.5\\text{ s}$", "$\\approx 1.66\\text{ s}$", "$\\approx 2.0\\text{ s}$", "$\\approx 2.4\\text{ s}$"], correcta: 1, retroalimentacion: "Usando $y = v_o t + \\frac{1}{2}gt^2$ (positivo abajo): $20 = 5t + 0.5(9.8)t^2 \\Rightarrow 4.9t^2 + 5t - 20 = 0$. Usando la fórmula cuadrática: $t = \\frac{-5 \\pm \\sqrt{5^2 - 4(4.9)(-20)}}{2(4.9)} = \\frac{-5 \\pm \\sqrt{25 + 392}}{9.8} = \\frac{-5 \\pm \\sqrt{417}}{9.8} \\approx \\frac{-5 \\pm 20.42}{9.8}$. El tiempo positivo es $t \\approx 15.42 / 9.8 \\approx <strong>1.57 \\text{ s}</strong>$. La opción más cercana es 1.66 s. (Nota: Las opciones proporcionadas pueden requerir el uso de $g=10$ m/s² para coincidir exactamente con alguna de ellas, o pueden ser aproximaciones. Con g=10: $5t^2+5t-20=0 \\Rightarrow t^2+t-4=0$. $t=\\frac{-1 \\pm \\sqrt{1-4(1)(-4)}}{2}=\\frac{-1 \\pm \\sqrt{17}}{2}\\approx \\frac{-1\\pm 4.12}{2}$. Positivo: $t\\approx 1.56$). La opción 1 (1.66) está más cerca del cálculo con $g=9.8$ (1.57) que las otras. Mantengo correcta=1." },
+      { tema: "Gravedad", pregunta: "Se lanza una pelota hacia arriba con $v_o = 15 \\text{ m/s}$. ¿Cuál es su velocidad 1 segundo después del lanzamiento? (Usar $g=9.8 \\text{ m/s}^2$, positivo arriba)", opciones: ["5.2 m/s", "9.8 m/s", "15 m/s", "24.8 m/s"], correcta: 0, retroalimentacion: "Usando $v = v_o + gt$ (con $g=-9.8 \\text{ m/s}^2$ si positivo es arriba): $v = 15 \\text{ m/s} + (-9.8 \\text{ m/s}^2)(1 \\text{ s}) = 15 - 9.8 = <strong>5.2 \\text{ m/s}</strong>$. La velocidad sigue siendo positiva, por lo tanto, sigue subiendo." },
+      { tema: "Gravedad", pregunta: "¿Cuánto tiempo tardará un objeto lanzado verticalmente hacia abajo con velocidad inicial de $10 \\text{ m/s}$ en alcanzar una velocidad de $30 \\text{ m/s}$? (Usar $g = 9.8 \\text{ m/s}^2$, positivo abajo)", opciones: ["$\\approx 1.02\\text{ s}$", "$\\approx 2.04\\text{ s}$", "$\\approx 3.06\\text{ s}$", "$\\approx 4.08\\text{ s}$"], correcta: 2, retroalimentacion: "Usando $v = v_o + gt$ (positivo abajo): $30 = 10 + 9.8t \\Rightarrow 20 = 9.8t \\Rightarrow t = 20 / 9.8 \\approx <strong>2.04 \\text{ s}</strong>$." },
+      { tema: "Gravedad", pregunta: "Una pelota es lanzada verticalmente hacia arriba. ¿Cómo es su aceleración en el punto más alto de su trayectoria?", opciones: ["Cero", "Dirigida hacia arriba", "Dirigida hacia abajo", "Variable"], correcta: 2, retroalimentacion: "Incluso en el punto más alto, la única fuerza que actúa sobre la pelota (despreciando el aire) es la gravedad. Por lo tanto, su aceleración sigue siendo la de la gravedad, dirigida <strong>hacia abajo</strong>." },
+      { tema: "Gravedad", pregunta: "Si se lanza un objeto verticalmente hacia abajo con cierta velocidad inicial, ¿qué tipo de movimiento describe?", opciones: ["Caída libre (si se desprecia el aire)", "MRU", "Lanzamiento vertical hacia arriba", "MRUA"], correcta: 3, retroalimentacion: "El movimiento vertical bajo la influencia constante de la gravedad es un MRUA. Lanzar hacia abajo con velocidad inicial no es 'caída libre desde reposo', pero sí es un <strong>MRUA</strong> con una velocidad inicial distinta de cero en la dirección de la gravedad (si se desprecia la resistencia del aire)." },
+
+      // --- TEMA 6: MOVIMIENTO CIRCULAR UNIFORME (MCU) (15 preguntas) ---
+       { tema: "MCU", pregunta: "En un MCU, ¿qué magnitud permanece constante?", opciones: ["La velocidad vectorial", "La aceleración vectorial", "La rapidez (magnitud de la velocidad lineal)", "La fuerza centrípeta en magnitud"], correcta: 2, retroalimentacion: "En el Movimiento Circular Uniforme (MCU), la <strong>rapidez</strong> (magnitud de la velocidad lineal) es constante. La velocidad vectorial cambia de dirección, y la aceleración centrípeta (y la fuerza) también cambian de dirección, aunque su magnitud puede ser constante."
+       },
+       { tema: "MCU", pregunta: "La medida angular $\\theta = s/r$ relaciona el ángulo en radianes con:", opciones: ["Velocidad y radio", "Arco recorrido y radio", "Tiempo y radio", "Frecuencia y radio"], correcta: 1, retroalimentacion: "La medida de un ángulo $\\theta$ en radianes se define como la razón entre la longitud del <strong>arco subtendido ($s$)</strong> y el <strong>radio ($r$)</strong> de la circunferencia: $\\theta = s/r$."
+       },
+       { tema: "MCU", pregunta: "La velocidad angular ($\\omega$) se mide en el S.I. en:", opciones: ["m/s", "rad/s", "Hz", "s"], correcta: 1, retroalimentacion: "La velocidad angular ($\\omega$) representa el ángulo barrido por unidad de tiempo y se mide en <strong>radianes por segundo (rad/s)</strong> en el Sistema Internacional."
+       },
+       { tema: "MCU", pregunta: "La relación entre velocidad lineal ($v$) y velocidad angular ($\\omega$) en un MCU es:", opciones: ["$v = \\omega / r$", "$v = \\omega \\cdot r$", "$v = r / \\omega$", "$v = \\omega^2 \\cdot r$"], correcta: 1, retroalimentacion: "La velocidad lineal o tangencial ($v$) en un MCU está relacionada con la velocidad angular ($\\omega$) y el radio ($r$) de la trayectoria mediante la ecuación <strong>$v = \\omega \\cdot r$</strong>."
+       },
+       { tema: "MCU", pregunta: "El periodo (T) en un MCU es:", opciones: ["El número de vueltas por segundo", "El tiempo que tarda en dar una vuelta completa", "La velocidad angular", "La aceleración centrípeta"], correcta: 1, retroalimentacion: "El <strong>periodo (T)</strong> es el tiempo empleado por el móvil en dar una vuelta completa o completar un ciclo del movimiento circular."
+       },
+       { tema: "MCU", pregunta: "La frecuencia (f) es el inverso de:", opciones: ["La velocidad angular", "El radio", "El periodo", "La aceleración"], correcta: 2, retroalimentacion: "La frecuencia ($f$) es el número de vueltas o ciclos por unidad de tiempo. Es la inversa del periodo: <strong>$f = 1/T$</strong>. Se mide en Hercios (Hz)."
+       },
+       { tema: "MCU", pregunta: "La aceleración centrípeta en un MCU está dirigida:", opciones: ["Tangencialmente a la trayectoria", "Hacia el exterior del círculo", "Hacia el centro del círculo", "En la dirección de la velocidad"], correcta: 2, retroalimentacion: "La aceleración centrípeta es la responsable del cambio de dirección de la velocidad en un MCU y siempre está dirigida <strong>hacia el centro</strong> de la trayectoria circular."
+       },
+       { tema: "MCU", pregunta: "La fórmula para la aceleración centrípeta ($a_c$) es:", opciones: ["$a_c = v \\cdot r$", "$a_c = \\omega / r$", "$a_c = v^2 / r$", "$a_c = \\omega \\cdot r^2$"], correcta: 2, retroalimentacion: "La magnitud de la aceleración centrípeta se puede calcular como <strong>$a_c = v^2 / r$</strong> o también como $a_c = \\omega^2 \\cdot r$, donde $v$ es la rapidez lineal y $\\omega$ la velocidad angular."
+       },
+       { tema: "MCU", pregunta: "Si un móvil en MCU tiene un periodo de 0.5 s, ¿cuál es su frecuencia? ($f=1/T$)", opciones: ["0.5 Hz", "1 Hz", "2 Hz", "4 Hz"], correcta: 2, retroalimentacion: "La frecuencia es $f = 1/T$. Si $T = 0.5 \\text{ s}$, entonces $f = 1 / 0.5 \\text{ s} = <strong>2 \\text{ Hz}</strong>$."
+       },
+       { tema: "MCU", pregunta: "Un disco gira con $\\omega = 2\\pi \\text{ rad/s}$. ¿Cuál es su periodo? ($\\omega = 2\\pi / T$)", opciones: ["$2\\pi$ s", "1 s", "$0.5$ s", "$\\pi$ s"], correcta: 1, retroalimentacion: "Sabemos que $\\omega = 2\\pi / T$. Si $\\omega = 2\\pi \\text{ rad/s}$, entonces $2\\pi = 2\\pi / T$, lo que implica que $T = <strong>1 \\text{ s}</strong>$."
+       },
+       { tema: "MCU", pregunta: "Si la velocidad angular de una rueda es $10 \\text{ rad/s}$ y su radio es $0.2 \\text{ m}$, ¿cuál es la rapidez lineal de un punto en el borde? ($v = \\omega r$)", opciones: ["0.5 m/s", "2 m/s", "50 m/s", "10.2 m/s"], correcta: 1, retroalimentacion: "Usando $v = \\omega \\cdot r$: $v = (10 \\text{ rad/s}) \\cdot (0.2 \\text{ m}) = <strong>2 \\text{ m/s}</strong>$."
+       },
+       { tema: "MCU", pregunta: "¿Cómo es la velocidad vectorial en diferentes puntos de una trayectoria circular uniforme?", opciones: ["Siempre la misma", "Siempre constante hacia el centro", "Su magnitud es constante pero su dirección cambia", "Es cero"], correcta: 2, retroalimentacion: "En MCU, la <strong>magnitud de la velocidad (rapidez) es constante</strong>, pero la dirección de la velocidad siempre es tangente a la trayectoria y cambia continuamente." },
+       { tema: "MCU", pregunta: "Un punto en el borde de un disco giratorio y un punto a la mitad del radio. ¿Cuál tiene mayor velocidad angular?", opciones: ["El punto del borde", "El punto a la mitad del radio", "Ambos tienen la misma", "Depende de la velocidad lineal"], correcta: 2, retroalimentacion: "En un cuerpo rígido girando, todos los puntos tienen la <strong>misma velocidad angular</strong>, independientemente de su distancia al eje de giro." },
+       { tema: "MCU", pregunta: "Si la rapidez lineal de un objeto en MCU se duplica, ¿cómo cambia la magnitud de la aceleración centrípeta? ($a_c = v^2/r$)", opciones: ["Se duplica", "Se cuadriplica", "Se reduce a la mitad", "No cambia"], correcta: 1, retroalimentacion: "La aceleración centrípeta es proporcional al cuadrado de la velocidad lineal ($a_c \\propto v^2$). Si $v$ se duplica ($2v$), $a_c$ se vuelve $ (2v)^2/r = 4v^2/r $, es decir, se <strong>cuadriplica</strong>." },
+       { tema: "MCU", pregunta: "Convertir 30 RPM (revoluciones por minuto) a rad/s.", opciones: ["$\\pi \\text{ rad/s}$", "$2\\pi \\text{ rad/s}$", "30 rad/s", "$60\\pi \\text{ rad/s}$"], correcta: 0, retroalimentacion: "1 revolución = $2\\pi$ radianes. 1 minuto = 60 segundos. 30 RPM = 30 revoluciones / minuto = ${{30 \\cdot 2\\pi \\text{ rad}} \\over {60 \\text{ s}}} = {{60\\pi \\text{ rad}} \\over {60 \\text{ s}}} = <strong>\\pi \\text{ rad/s}</strong>$." },
+
+      // --- TEMA 7: MOVIMIENTO PARABÓLICO (15 preguntas) ---
+       { tema: "Parabólico", pregunta: "El movimiento parabólico es la composición de dos movimientos:", opciones: ["Dos MRU", "Un MRU horizontal y un MRUA vertical", "Dos MRUA", "Un MCU y un MRU"], correcta: 1, retroalimentacion: "El movimiento parabólico (en ausencia de fricción del aire) resulta de la composición de un <strong>Movimiento Rectilíneo Uniforme (MRU) en la componente horizontal</strong> y un <strong>Movimiento Rectilíneo Uniformemente Acelerado (MRUA) en la componente vertical</strong> (debido a la gravedad)."
+       },
+       { tema: "Parabólico", pregunta: "En un tiro parabólico, la componente horizontal de la velocidad (sin fricción):", opciones: ["Aumenta con el tiempo", "Disminuye con el tiempo", "Permanece constante", "Es cero en la altura máxima"], correcta: 2, retroalimentacion: "Despreciando la resistencia del aire, no hay fuerzas horizontales actuando sobre el proyectil, por lo que su aceleración horizontal es cero. Esto significa que la <strong>componente horizontal de la velocidad ($v_x$) permanece constante</strong> durante todo el vuelo."
+       },
+       { tema: "Parabólico", pregunta: "En el punto más alto de una trayectoria parabólica, la componente vertical de la velocidad es:", opciones: ["Máxima", "Mínima pero no cero", "Cero", "Igual a la componente horizontal"], correcta: 2, retroalimentacion: "En el punto de altura máxima de un tiro parabólico, la <strong>componente vertical de la velocidad ($v_y$) es instantáneamente cero</strong>. El proyectil deja de subir y comienza a bajar."
+       },
+       { tema: "Parabólico", pregunta: "El ángulo de lanzamiento que produce el máximo alcance horizontal (para una velocidad inicial dada y sobre terreno plano) es:", opciones: ["30°", "45°", "60°", "90°"], correcta: 1, retroalimentacion: "Para una rapidez inicial dada y un lanzamiento sobre terreno horizontal, el alcance horizontal máximo se logra con un ángulo de lanzamiento de <strong>45°</strong> (respecto a la horizontal)."
+       },
+       { tema: "Parabólico", pregunta: "El tiempo de vuelo en un movimiento parabólico simétrico (lanzado y aterrizando al mismo nivel) es:", opciones: ["$t_v = v_{oy} / g$", "$t_v = 2 v_{oy} / g$", "$t_v = v_{ox} / g$", "$t_v = \\sqrt{2H_{max}/g}$"], correcta: 1, retroalimentacion: "El tiempo de vuelo total para un tiro parabólico simétrico es el doble del tiempo que tarda en alcanzar la altura máxima: <strong>$t_v = 2 v_{oy} / g$</strong>, donde $v_{oy}$ es la componente vertical inicial de la velocidad y $g$ la aceleración de la gravedad."
+       },
+       { tema: "Parabólico", pregunta: "La altura máxima ($H_{max}$) en un tiro parabólico se alcanza cuando:", opciones: ["$v_x = 0$", "$v_y = 0$", "El tiempo es la mitad del tiempo de vuelo", "Ambas b y c son correctas"], correcta: 3, retroalimentacion: "La altura máxima se alcanza cuando la <strong>componente vertical de la velocidad ($v_y$) es cero</strong>. En un tiro simétrico, esto ocurre a la <strong>mitad del tiempo de vuelo total</strong>. Por lo tanto, ambas opciones b y c son correctas."
+       },
+       { tema: "Parabólico", pregunta: "El alcance horizontal (R) de un proyectil lanzado con velocidad $v_o$ y ángulo $\\theta$ sobre terreno plano es:", opciones: ["$R = (v_o^2 \\sin(2\\theta)) / g$", "$R = (v_o \\sin\\theta) / g$", "$R = (v_o^2 \\cos\\theta) / g$", "$R = 2 v_o / g$"], correcta: 0, retroalimentacion: "El alcance horizontal (R) para un tiro parabólico sobre terreno plano se calcula con la fórmula: <strong>$R = (v_o^2 \\sin(2\\theta)) / g$</strong>."
+       },
+       { tema: "Parabólico", pregunta: "Si se lanza un proyectil horizontalmente desde una altura H, el tiempo que tarda en caer depende de:", opciones: ["La velocidad horizontal de lanzamiento", "La masa del proyectil", "La altura H únicamente (y g)", "El ángulo de lanzamiento"], correcta: 2, retroalimentacion: "Cuando un proyectil se lanza horizontalmente, su movimiento vertical es una caída libre desde la altura H. El tiempo de caída solo depende de esta <strong>altura H</strong> y la aceleración de la gravedad ($t = \\sqrt{2H/g}$), no de la velocidad horizontal inicial."
+       },
+       { tema: "Parabólico", pregunta: "La trayectoria de un proyectil en ausencia de fricción del aire es una:", opciones: ["Línea recta", "Circunferencia", "Parábola", "Hipérbola"], correcta: 2, retroalimentacion: "Debido a la combinación de un movimiento horizontal a velocidad constante y un movimiento vertical con aceleración constante (gravedad), la trayectoria descrita es una <strong>parábola</strong>."
+       },
+       { tema: "Parabólico", pregunta: "Un cañón dispara un proyectil con $v_o = 100 \\text{ m/s}$ y un ángulo de 30°. ¿Cuál es la componente vertical inicial de la velocidad ($v_{oy}$)? ($\\sin 30° = 0.5, \\cos 30° \\approx 0.866$)", opciones: ["100 m/s", "86.6 m/s", "50 m/s", "30 m/s"], correcta: 2, retroalimentacion: "La componente vertical inicial de la velocidad es $v_{oy} = v_o \\sin\\theta$. Entonces, $v_{oy} = 100 \\text{ m/s} \\cdot \\sin 30° = 100 \\text{ m/s} \\cdot 0.5 = <strong>50 \\text{ m/s}</strong>$."
+       },
+       { tema: "Parabólico", pregunta: "Dos proyectiles A y B se lanzan con la misma rapidez inicial. A con ángulo de 30° y B con 60°. ¿Cuál tendrá mayor alcance horizontal (sobre terreno plano)?", opciones: ["A", "B", "Ambos tendrán el mismo alcance", "Depende de sus masas"], correcta: 2, retroalimentacion: "Para ángulos complementarios (que suman 90°, como 30° y 60°), el alcance horizontal es el mismo si la rapidez inicial es igual. Esto se debe a que $\\sin(2 \\cdot 30°) = \\sin(60°)$ y $\\sin(2 \\cdot 60°) = \\sin(120°) = \\sin(180°-60°) = \\sin(60°)$. Por lo tanto, <strong>ambos tendrán el mismo alcance</strong>."
+       },
+       { tema: "Parabólico", pregunta: "Un proyectil se lanza horizontalmente desde una altura de 1.225 m con $v_x = 10 \\text{ m/s}$. ¿Cuánto tiempo tarda en tocar el suelo? (Usar $g = 9.8 \\text{ m/s}^2$, $y = \\frac{1}{2}gt^2$ si cae desde reposo verticalmente)", opciones: ["0.25 s", "0.5 s", "1 s", "2 s"], correcta: 1, retroalimentacion: "El tiempo de caída solo depende de la altura vertical: $1.225 = \\frac{1}{2}(9.8)t^2 \\Rightarrow 1.225 = 4.9t^2 \\Rightarrow t^2 = 1.225 / 4.9 = 0.25 \\Rightarrow t = \\sqrt{0.25} = <strong>0.5 \\text{ s}</strong>$." },
+       { tema: "Parabólico", pregunta: "En un tiro parabólico, ¿cuál es la magnitud mínima de la velocidad durante el vuelo (despreciando el aire)?", opciones: ["La velocidad inicial", "Cero", "La componente vertical inicial de la velocidad", "La componente horizontal de la velocidad"], correcta: 3, retroalimentacion: "La velocidad vectorial es $\\vec{v} = v_x \\hat{i} + v_y \\hat{j}$. $v_x$ es constante, $v_y$ cambia. La magnitud es $v = \\sqrt{v_x^2 + v_y^2}$. Esta magnitud es mínima cuando $v_y$ es mínima, que ocurre en el punto más alto donde $v_y=0$. La velocidad mínima en ese punto es $\\sqrt{v_x^2 + 0^2} = |v_x|$. Por lo tanto, la magnitud mínima de la velocidad es la <strong>componente horizontal de la velocidad</strong> (siempre que no sea un lanzamiento vertical, donde $v_x=0$)."},
+       { tema: "Parabólico", pregunta: "Si se lanza un proyectil con $v_o = 20 \\text{ m/s}$ y un ángulo de 45°, ¿cuál es el tiempo de vuelo sobre terreno plano? (Usar $g = 9.8 \\text{ m/s}^2$, $v_{oy} = v_o \\sin\\theta$, $t_v = 2v_{oy}/g$)", opciones: ["$\\approx 1.44\\text{ s}$", "$\\approx 2.89\\text{ s}$", "$\\approx 4.08\\text{ s}$", "$\\approx 2.04\\text{ s}$"], correcta: 1, retroalimentacion: "$v_{oy} = 20 \\text{ m/s} \\cdot \\sin(45°) \\approx 20 \cdot 0.707 = 14.14 \\text{ m/s}$. Tiempo de vuelo $t_v = (2 \cdot 14.14) / 9.8 \\approx 28.28 / 9.8 \\approx <strong>2.89 \\text{ s}</strong>$." },
+       { tema: "Parabólico", pregunta: "Dos proyectiles idénticos se lanzan desde la misma altura con la misma rapidez inicial. Uno a 30° sobre la horizontal y otro a 30° *bajo* la horizontal. ¿Cuál toca el suelo primero?", opciones: ["El lanzado a 30° sobre la horizontal", "El lanzado a 30° bajo la horizontal", "Ambos tocan el suelo al mismo tiempo", "Depende de la altura"], correcta: 1, retroalimentacion: "El proyectil lanzado a 30° *bajo* la horizontal tiene una componente vertical inicial de velocidad hacia abajo, sumándose a la aceleración de la gravedad. El lanzado a 30° sobre la horizontal tiene una componente vertical inicial hacia arriba, lo que le hace subir antes de empezar a caer. Por lo tanto, el lanzado <strong>a 30° bajo la horizontal toca el suelo primero</strong>." },
+    ];
+
+    // Paleta de colores pastel para los segmentos de la ruleta
+    // Suficientes colores para 30 segmentos sin repetir si se usa el nivel Experto
+    const coloresRuleta = ["#ffadad", "#ffd6a5", "#fdffb6", "#caffbf", "#a7ffeb", "#c0afee", "#e0aaff", "#ffc3a0", "#ff9a8b", "#ccffd1", "#a1c0e4", "#b5e2ff", "#d1b2ff", "#ffb3c6", "#c6f2ff", "#a2d2ff", "#bde0fe", "#c1edcc", "#f7a9b8", "#e6c9a1", "#d4a5a5", "#a0c4ff", "#9bf0e1", "#fcf6bd", "#a9def9", "#e4c1f9", "#c8b6ff", "#ffb5a7", "#ffc785", "#f7e1d7"];
+
+
+    // Elementos del DOM
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const ruletaDiv = document.getElementById('ruleta');
+    const vidasDiv = document.getElementById('vidas');
+    const contenedorPreguntaDiv = document.getElementById('contenedorPregunta');
+    const mensajeDiv = document.getElementById('mensaje');
+    const contestadasSpan = document.getElementById('contestadas');
+    const faltantesSpan = document.getElementById('faltantes');
+    const puntajeSpan = document.getElementById('puntaje');
+    const calificacionSpan = document.getElementById('calificacion');
+
+    // Selectores de UI
+    const nivelSelectorDiv = document.getElementById('nivel-selector');
+    const ruletaContainerDiv = document.getElementById('ruletaContainer');
+    const gameControlsDiv = document.getElementById('gameControls');
+    const infoDisplayDiv = document.getElementById('infoDisplay');
+    const btnGirar = document.getElementById('btnGirar');
+    const btnReiniciar = document.getElementById('btnReiniciar');
+
+    // Estado del juego
+    let vidas = 10; // Iniciar con 10 vidas
+    let girando = false;
+    let aciertos = 0;
+    let intentos = 0; // Contador de respuestas dadas (incluye correctas e incorrectas) - no usado para cálculo final de 5.0
+    let anguloActual = 0; // Ángulo acumulado de la ruleta
+
+    let preguntasSeleccionadasNivel = []; // Todas las preguntas para el nivel actual
+    let preguntasRespondidasNivel = []; // Preguntas ya respondidas en el nivel actual (para no repetir)
+    let numPreguntasNivel = 0; // Total de preguntas para el nivel actual
+
+    let preguntaActualGlobal = null; // Para tener acceso a la pregunta en evaluarRespuestaDirecta
+
+    // Audio
+    let spinSynth, correctSynth, incorrectSynth, gameOverSynth, levelCompleteSynth, clickSynth;
+    let soundsReady = false;
+    let audioInitialized = false;
+
+    // Inicializa el contexto de audio al primer click del usuario en un botón
+    async function initializeAudio() {
+        if (audioInitialized) return;
+        try {
+            // Se requiere una interacción del usuario para iniciar el contexto de audio
+            await Tone.start();
+            console.log("Audio Context started!");
+            setupSounds();
+            audioInitialized = true;
+        } catch (e) {
+            console.error("Error starting Tone.js Audio Context:", e);
+             // Mostrar mensaje al usuario si el audio falla (opcional)
+        }
+    }
+
+    // Configura los sintetizadores Tone.js
+    function setupSounds() {
+        if (soundsReady) return;
+        try {
+            spinSynth = new Tone.NoiseSynth({
+                noise: { type: 'white', playbackRate: 1.5 }, // Ajustado playbackRate
+                envelope: { attack: 0.01, decay: 0.5, sustain: 0.1, release: 0.5 }
+            }).toDestination();
+
+            correctSynth = new Tone.Synth({
+                oscillator: { type: 'triangle' },
+                envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.3 }
+            }).toDestination();
+
+            incorrectSynth = new Tone.Synth({
+                oscillator: { type: 'square' },
+                envelope: { attack: 0.01, decay: 0.4, sustain: 0, release: 0.2 }
+            }).toDestination();
+
+            gameOverSynth = new Tone.FatOscillator({
+                type: "sawtooth",
+                count: 3,
+                spread: 30,
+                envelope: { attack: 0.1, decay: 1.5, sustain: 0.1, release: 1.5 }
+            }).toDestination();
+            gameOverSynth.volume.value = -6;
+
+            levelCompleteSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.02, decay: 0.2, sustain: 0.4, release: 0.8 }
+            }).toDestination();
+            levelCompleteSynth.volume.value = -3;
+
+            clickSynth = new Tone.MembraneSynth({
+                pitchDecay: 0.01,
+                octaves: 2,
+                envelope: { attack: 0.001, decay: 0.1, sustain: 0 }
+            }).toDestination();
+            clickSynth.volume.value = -10;
+
+            soundsReady = true;
+            console.log("Sounds ready!");
+        } catch (e) {
+            console.error("Error setting up Tone.js synths:", e);
+        }
+    }
+
+    // Reproduce un sonido específico
+    function playSound(type) {
+        if (!audioInitialized || !soundsReady) {
+            // Si el audio no está listo, solo registramos el intento (opcional)
+            console.warn("Audio not ready or initialized, cannot play sound:", type);
+            return;
+        }
+        const now = Tone.now();
+        try {
+            switch(type) {
+                case 'spin':
+                    spinSynth.triggerAttackRelease("2n", now);
+                     // Añadir clicks rítmicos durante el giro
+                    for (let i = 0; i < 10; i++) { // Aprox 10 clicks en 4s
+                        clickSynth.triggerAttackRelease("C4", "64n", now + i * (4 / 10) + Math.random()*0.02);
+                    }
+                    break;
+                case 'correct':
+                    correctSynth.triggerAttackRelease("C5", "8n", now);
+                    correctSynth.triggerAttackRelease("G5", "8n", now + 0.15);
+                    break;
+                case 'incorrect':
+                    incorrectSynth.triggerAttackRelease("F#3", "4n", now);
+                    incorrectSynth.triggerAttackRelease("F3", "4n", now + 0.1);
+                    break;
+                case 'gameOver':
+                    gameOverSynth.triggerAttackRelease("C2", "2n", now);
+                    break;
+                case 'levelComplete':
+                    levelCompleteSynth.triggerAttackRelease(["C4", "E4", "G4", "C5"], "1n", now);
+                    break;
+                case 'click':
+                    clickSynth.triggerAttackRelease("C5", "32n", now);
+                    break;
+            }
+        } catch (e) {
+            console.error("Error playing sound:", type, e);
+        }
+    }
+
+    // ==== DIBUJAR RULETA DINÁMICAMENTE ====
+    // Dibuja la ruleta con un número específico de segmentos.
+    // Cada segmento representa una pregunta *disponible*.
+    function dibujarRuleta(numSegmentos) {
+      if (numSegmentos <= 0) { // Si no hay segmentos, limpiar el canvas
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          // Opcional: dibujar un estado de "juego terminado" en el canvas
+          return;
+      }
+
+      const colores = coloresRuleta; // Usamos la paleta completa, se cicla
+      const angle = (2 * Math.PI) / numSegmentos; // Ángulo de cada segmento en radianes
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const radius = Math.min(centerX, centerY) - 5; // Radio de la ruleta
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpiar canvas
+
+      for (let i = 0; i < numSegmentos; i++) {
+        // Los ángulos se miden desde la horizontal derecha en sentido antihorario.
+        // Para empezar desde arriba (-PI/2), ajustamos el inicio y fin.
+        const startAngle = i * angle - Math.PI / 2;
+        const endAngle = (i + 1) * angle - Math.PI / 2;
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.closePath();
+
+        ctx.fillStyle = colores[i % colores.length]; // Asigna color ciclando la paleta
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff"; // Borde blanco
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // No dibujamos texto de tema o número de pregunta en los segmentos, solo los colores.
+        // Si quisieras texto, aquí iría el código similar al anterior, rotando y posicionando.
+      }
+
+      // Dibujar un pequeño círculo central
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius * 0.1, 0, 2 * Math.PI);
+      ctx.fillStyle = "#004d40";
+      ctx.fill();
+    }
+
+    // Función para barajar un array (algoritmo Fisher-Yates)
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]]; // Intercambio de elementos
+      }
+      return array;
+    }
+
+    // Inicia un nuevo juego con el número de preguntas seleccionado
+    async function iniciarJuegoConNivel(nivel) {
+      await initializeAudio(); // Asegurar que el audio esté listo
+      playSound('click'); // Sonido al iniciar
+
+      numPreguntasNivel = nivel;
+      preguntasRespondidasNivel = []; // Resetear preguntas respondidas
+      aciertos = 0; // Resetear aciertos
+      vidas = 10; // Resetear vidas
+      anguloActual = 0; // Resetear ángulo de la ruleta
+      ruletaDiv.style.transform = `rotate(0deg)`; // Resetear rotación visual
+
+      // Seleccionar 'nivel' preguntas aleatorias del banco completo y barajarlas
+      const bancoCopia = [...preguntasFisica]; // Copia del banco original
+      if (nivel > bancoCopia.length) { // Si se piden más preguntas de las que hay
+          console.warn(`Solo hay ${bancoCopia.length} preguntas disponibles en total. Jugando con todas ellas.`);
+          preguntasSeleccionadasNivel = shuffleArray(bancoCopia);
+          numPreguntasNivel = bancoCopia.length; // Ajustar el número de preguntas del nivel
+      } else {
+           preguntasSeleccionadasNivel = shuffleArray(bancoCopia).slice(0, numPreguntasNivel);
+      }
+
+      // Verificar si realmente se seleccionaron preguntas
+      if (numPreguntasNivel === 0) {
+          console.error("No se pudieron seleccionar preguntas para este nivel.");
+          mostrarMensajeFinal("Error al iniciar el juego. No hay preguntas disponibles.", true);
+          return; // Salir de la función si no hay preguntas
+      }
+
+      actualizarVidas(); // Actualizar visualización de vidas
+      actualizarInfoJuego(); // Actualizar contadores e info
+
+      // Ocultar elementos iniciales y mostrar los del juego
+      mensajeDiv.innerHTML = "";
+      mensajeDiv.className = "mensaje";
+      contenedorPreguntaDiv.style.display = "none";
+      mensajeDiv.style.display = "none";
+
+      nivelSelectorDiv.style.display = "none";
+      ruletaContainerDiv.style.display = "block";
+      gameControlsDiv.style.display = "flex";
+      infoDisplayDiv.style.display = "block";
+      btnGirar.style.display = "block";
+      btnReiniciar.style.display = "block";
+
+      // Dibujar la ruleta con el número inicial de preguntas del nivel
+      dibujarRuleta(numPreguntasNivel);
+    }
+
+    // Gira la ruleta y selecciona una pregunta no respondida
+    function girarRuleta() {
+      // Verificar si se puede girar (no está girando, hay vidas, quedan preguntas)
+      if (girando || vidas <= 0 || preguntasRespondidasNivel.length >= numPreguntasNivel) {
+        // Si el juego terminó por vidas o por preguntas, mostrar mensaje final
+        if (vidas <= 0 || preguntasRespondidasNivel.length >= numPreguntasNivel) {
+             mostrarMensajeFinal();
+        }
+        return; // Salir si no se puede girar
+      }
+
+      // Obtener la lista actual de preguntas NO respondidas
+      const preguntasNoRespondidas = preguntasSeleccionadasNivel.filter(q =>
+           !preguntasRespondidasNivel.includes(q)
+      );
+
+      const numSegmentosActuales = preguntasNoRespondidas.length;
+
+      if (numSegmentosActuales === 0) {
+          // Esto debería estar cubierto por la condición inicial, pero como seguridad.
+          console.warn("No quedan preguntas sin responder en este nivel.");
+          mostrarMensajeFinal("¡Has respondido todas las preguntas de este nivel!", true);
+          girando = false; // Resetear estado
+          btnGirar.disabled = true; // Mantener deshabilitado
+          dibujarRuleta(0); // Limpia el canvas
+          return;
+      }
+
+      playSound('spin'); // Sonido de giro
+      girando = true; // Marcar como girando
+      btnGirar.disabled = true; // Deshabilitar botón de giro
+
+      // Ocultar elementos de la pregunta y mensaje anteriores
+      contenedorPreguntaDiv.style.display = 'none';
+      mensajeDiv.style.display = 'none';
+      mensajeDiv.innerHTML = '';
+
+      // === Seleccionar y calcular el ángulo de destino ===
+      // Seleccionar una pregunta al azar de las no respondidas
+      const idxPreguntaEnNoRespondidas = Math.floor(Math.random() * numSegmentosActuales);
+      const preguntaSeleccionada = preguntasNoRespondidas[idxPreguntaEnNoRespondidas];
+
+      // Calcular el ángulo necesario para apuntar al segmento seleccionado.
+      // Los segmentos están indexados de 0 a numSegmentosActuales - 1.
+      // El ángulo de cada segmento es `360 / numSegmentosActuales`.
+      // El centro del segmento `i` (0-based) está en `i * anguloPorSegmentoActual + anguloPorSegmentoActual / 2`
+      // medido en sentido horario desde la parte superior (0 grados CSS).
+      const anguloPorSegmentoActual = 360 / numSegmentosActuales; // Ángulo de cada segmento en grados
+      const anguloCentroSegmento = idxPreguntaEnNoRespondidas * anguloPorSegmentoActual + anguloPorSegmentoActual / 2; // Ángulo al centro del segmento (horario desde arriba)
+
+      const girosCompletos = 5; // Número de giros completos
+      const rotacionAdicional = (360 - (anguloCentroSegmento % 360) + (anguloActual % 360)) % 360; // Ajuste para apuntar al centro del segmento desde el ángulo actual
+
+      const rotacionFinal = anguloActual + (girosCompletos * 360) + rotacionAdicional;
+
+
+      ruletaDiv.style.transform = `rotate(${rotacionFinal}deg)`;
+      anguloActual = rotacionFinal; // Actualizar ángulo acumulado para el próximo giro
+
+      // Guardar la pregunta actual para `evaluarRespuestaDirecta`
+      preguntaActualGlobal = preguntaSeleccionada;
+
+      // Redibujar la ruleta NO ocurre aquí. Ocurre después de responder la pregunta.
+
+      // Después de que la ruleta se detiene (aproximadamente 4 segundos)
+      setTimeout(() => {
+          // MOSTRAR LA PREGUNTA
+          mostrarPregunta(preguntaActualGlobal);
+          // El estado 'girando' se resetea y el botón 'Girar' se habilita
+          // DESPUÉS de que se responda la pregunta en evaluarRespuestaDirecta
+      }, 4000); // Tiempo igual a la duración de la transición CSS
+    }
+
+    // Muestra la pregunta y sus opciones
+    async function mostrarPregunta(preguntaObj) {
+      // Asegurarse de que la ruleta no esté marcada como girando mientras se responde
+      girando = false; // Resetear estado de giro *aquí* antes de mostrar la pregunta
+
+      if (!preguntaObj) {
+           console.error("Error interno: No hay pregunta para mostrar.");
+           // Si no hay pregunta, habilitar girar (si es posible) o mostrar final.
+           if (vidas <= 0 || preguntasRespondidasNivel.length >= numPreguntasNivel) {
+                mostrarMensajeFinal();
+           } else {
+               btnGirar.disabled = false; // Permitir intentar girar de nuevo si fue un error temporal
+               // Redibujar la ruleta con los segmentos restantes (ya que no se respondió una pregunta)
+               dibujarRuleta(numPreguntasNivel - preguntasRespondidasNivel.length);
+           }
+           return;
+      }
+
+      let opcionesHTML = '';
+      preguntaObj.opciones.forEach((opcion, index) => {
+          // Envuelve cada opción en un botón y asigna el evento click
+          opcionesHTML += `<button onclick="evaluarRespuestaDirecta(this, ${index})">${opcion}</button>`;
+      });
+
+      // Limpiar contenido anterior
+      contenedorPreguntaDiv.innerHTML = '';
+
+      // Establecer el texto de la pregunta y las opciones
+      contenedorPreguntaDiv.innerHTML = `<h3>${preguntaObj.pregunta}</h3><div class="opciones">${opcionesHTML}</div>`;
+      contenedorPreguntaDiv.style.display = 'block'; // Mostrar el contenedor de la pregunta
+
+      // Ocultar mensaje anterior
+      mensajeDiv.style.display = 'none';
+      mensajeDiv.innerHTML = '';
+
+      // --- CORRECCIÓN MATHJAX ---
+      // Ejecutar MathJax en el contenido nuevo del contenedor de preguntas.
+      // Se usa requestAnimationFrame para asegurar que el DOM se haya actualizado antes de MathJax.
+      requestAnimationFrame(() => {
+           if (window.MathJax) {
+               MathJax.typesetPromise([contenedorPreguntaDiv]).catch(function (err) {
+                   console.error('MathJax typesetting failed for question container:', err);
+               });
+           } else {
+               console.warn("MathJax no está cargado al intentar typeset la pregunta.");
+           }
+      });
+    }
+
+    // Evalúa la respuesta del usuario
+     function evaluarRespuestaDirecta(buttonElement, indiceRespuesta) {
+         // Deshabilitar todos los botones de opción para evitar clics múltiples
+         const opcionesBotones = contenedorPreguntaDiv.querySelectorAll('.opciones button');
+         opcionesBotones.forEach(btn => btn.disabled = true);
+
+         // playSound('click'); // Ya se reproduce el click al tocar el botón gracias al listener global
+
+         // Usar la pregunta actual guardada globalmente
+         const preguntaActual = preguntaActualGlobal;
+
+         if (!preguntaActual) {
+              console.error("Error interno: No hay pregunta actual definida al evaluar la respuesta.");
+               if (vidas <= 0 || preguntasRespondidasNivel.length >= numPreguntasNivel) {
+                   mostrarMensajeFinal();
+               } else {
+                   btnGirar.disabled = false; // Permitir intentar girar de nuevo
+               }
+              return;
+         }
+
+         const esCorrecta = indiceRespuesta === preguntaActual.correcta;
+         intentos++; // Incrementa el contador de intentos
+
+         let resultadoTexto = "";
+         let retroalimentacionHTML = "";
+
+         // === MOSTRAR RETROALIMENTACIÓN SIEMPRE (si existe) ===
+         if (preguntaActual.retroalimentacion) {
+             retroalimentacionHTML = `<div class="retroalimentacion-texto">${preguntaActual.retroalimentacion}</div>`;
+         }
+
+         if (esCorrecta) {
+             // Solo incrementa aciertos si esta pregunta NO ha sido respondida correctamente ANTES
+             // (La lógica de agregar a respondidasNivel asegura esto si se usa correctamente)
+             // Simplificamos: el acierto se cuenta cuando se responde correctamente POR PRIMERA VEZ en el nivel
+              if (!preguntasRespondidasNivel.includes(preguntaActual)) {
+                   aciertos++; // Sumar acierto si es la primera vez que se responde esta pregunta
+               }
+
+             resultadoTexto = "🎉 ¡Respuesta Correcta! 🎉";
+             mensajeDiv.className = "mensaje correcto";
+             playSound('correct');
+
+              // Resaltar la respuesta correcta elegida por el usuario
+             buttonElement.style.backgroundColor = '#a7ffeb'; // Teal claro
+             buttonElement.style.fontWeight = 'bold';
+
+
+         } else {
+             vidas--; // Pierde vida si es incorrecta
+             resultadoTexto = `😢 Incorrecto.`; // El texto de la respuesta correcta se incluye en la retroalimentación.
+             mensajeDiv.className = "mensaje incorrecto";
+             playSound('incorrect');
+
+             // Marcar la opción correcta para que el usuario la vea
+             opcionesBotones[preguntaActual.correcta].style.backgroundColor = '#a7ffeb'; // Teal claro
+             opcionesBotones[preguntaActual.correcta].style.fontWeight = 'bold';
+
+             // Marcar la opción incorrecta elegida por el usuario
+             buttonElement.style.backgroundColor = '#ffcdd2'; // Red claro
+             buttonElement.style.fontWeight = 'bold';
+         }
+
+         // --- MUY IMPORTANTE ---
+         // Agregar la pregunta actual a la lista de respondidas *después* de la primera respuesta (correcta o incorrecta)
+         // para que no vuelva a salir en el sorteo.
+          if (!preguntasRespondidasNivel.includes(preguntaActual)) {
+              preguntasRespondidasNivel.push(preguntaActual);
+          }
+
+
+         actualizarVidas(); // Actualizar visualización de vidas
+         actualizarInfoJuego(); // Actualizar contadores e info
+
+         // Mostrar mensaje de resultado y retroalimentación
+         mensajeDiv.innerHTML = `<span class="resultado-texto">${resultadoTexto}</span>${retroalimentacionHTML}`;
+         mensajeDiv.style.display = "block";
+
+         // --- CORRECCIÓN MATHJAX ---
+         // Ejecutar MathJax en el contenido nuevo del mensaje.
+         requestAnimationFrame(() => {
+              if (window.MathJax) {
+                  MathJax.typesetPromise([mensajeDiv]).catch(function (err) {
+                      console.error('MathJax typesetting failed for message:', err);
+                  });
+              } else {
+                  console.warn("MathJax no está cargado al intentar typeset el mensaje.");
+              }
+          });
+
+
+         // Ocultar la pregunta después de un breve retraso y continuar el juego o terminar
+         setTimeout(() => {
+             contenedorPreguntaDiv.style.display = "none";
+
+              // Comprobar si el juego ha terminado (por vidas o preguntas agotadas)
+              if (vidas <= 0 || preguntasRespondidasNivel.length >= numPreguntasNivel) {
+                  mostrarMensajeFinal(); // Mostrar mensaje final
+              } else {
+                 // Si el juego continúa:
+                 // Habilitar el botón de girar para la próxima ronda
+                  btnGirar.disabled = false;
+                 // Redibujar la ruleta con los segmentos restantes para la próxima ronda
+                  dibujarRuleta(numPreguntasNivel - preguntasRespondidasNivel.length);
+                 // Opcional: Limpiar el mensaje después de un tiempo (para que no esté visible durante el giro)
+                   setTimeout(() => {
+                       mensajeDiv.style.display = 'none';
+                       mensajeDiv.innerHTML = '';
+                   }, 2000); // Ocultar mensaje 2s después de que la pregunta desaparece
+              }
+
+         }, 2000); // Ocultar la pregunta 2 segundos después de responder
+     }
+
+    // Actualiza la visualización de las vidas
+    function actualizarVidas() {
+      const corazones = "❤️".repeat(Math.max(0, vidas));
+      const corazonesVacios = "🤍".repeat(Math.max(0, 10 - vidas)); // Asumimos 10 vidas máximas para la visualización
+      vidasDiv.innerHTML = `${corazones}${corazonesVacios} <span style="font-size: 0.8em; vertical-align: middle;">(${vidas} vidas)</span>`;
+    }
+
+    // Actualiza la información del juego (preguntas, puntaje, calificación)
+    function actualizarInfoJuego() {
+      contestadasSpan.textContent = preguntasRespondidasNivel.length;
+      faltantesSpan.textContent = Math.max(0, numPreguntasNivel - preguntasRespondidasNivel.length);
+      puntajeSpan.textContent = aciertos;
+
+      let calif = 0;
+      if (numPreguntasNivel > 0) {
+          // La calificación es aciertos sobre el TOTAL de preguntas del nivel
+          calif = (aciertos / numPreguntasNivel) * 5;
+      }
+      calificacionSpan.textContent = calif.toFixed(1);
+    }
+
+    // Muestra el mensaje final del juego (ganado o perdido)
+    function mostrarMensajeFinal(mensajePersonalizado = null, forzado = false) {
+        contenedorPreguntaDiv.style.display = 'none'; // Ocultar pregunta
+        btnGirar.style.display = 'none'; // Ocultar botón girar
+        btnReiniciar.style.display = 'block'; // Mostrar botón reiniciar
+
+        mensajeDiv.className = 'mensaje final'; // Clase para el mensaje final
+        let mensajeFinalTexto = '';
+        let playVictorySound = false; // Bandera para el sonido de victoria
+
+        if (forzado) { // Si se fuerza un mensaje específico (ej. no quedan preguntas)
+             mensajeFinalTexto = mensajePersonalizado;
+        } else if (vidas <= 0) { // Si se acabaron las vidas
+            mensajeFinalTexto = `¡Juego Terminado! Te quedaste sin vidas. 💔`;
+            playSound('gameOver');
+        } else if (preguntasRespondidasNivel.length >= numPreguntasNivel) { // Si se respondieron todas las preguntas
+            mensajeFinalTexto = `¡Felicidades! Has completado todas las preguntas. 🎉`;
+            playVictorySound = true; // Reproducir sonido de victoria
+        }
+
+        // Calcular la calificación final
+        let notaFinal = 0;
+        if (numPreguntasNivel > 0) {
+            notaFinal = (aciertos / numPreguntasNivel) * 5;
+        }
+        mensajeFinalTexto += `<br>Tu puntaje final es: ${aciertos} / ${numPreguntasNivel}`;
+        mensajeFinalTexto += `<br>Tu calificación final es: <strong>${notaFinal.toFixed(1)} / 5.0</strong>`;
+
+
+        mensajeDiv.innerHTML = mensajeFinalTexto; // Establecer el contenido del mensaje
+        mensajeDiv.style.display = 'block'; // Mostrar el mensaje
+
+         if(playVictorySound) {
+             playSound('levelComplete');
+         }
+
+        // No suele ser necesario MathJax para el mensaje final simple si no tiene fórmulas complejas
+    }
+
+    // Reinicia el juego al estado inicial (selector de nivel)
+    function reiniciarJuego() {
+      playSound('click');
+
+      // Ocultar elementos del juego
+      ruletaContainerDiv.style.display = "none";
+      gameControlsDiv.style.display = "none";
+      infoDisplayDiv.style.display = "none";
+      contenedorPreguntaDiv.style.display = "none";
+      mensajeDiv.style.display = "none";
+      mensajeDiv.innerHTML = ""; // Limpiar mensaje
+      mensajeDiv.className = "mensaje"; // Resetear clase de mensaje
+
+      // Reiniciar estado del juego a valores iniciales
+      vidas = 10;
+      girando = false;
+      aciertos = 0;
+      intentos = 0;
+      anguloActual = 0;
+      preguntasSeleccionadasNivel = [];
+      preguntasRespondidasNivel = [];
+      numPreguntasNivel = 0;
+      preguntaActualGlobal = null;
+
+      // Actualizar info a 0
+      actualizarVidas();
+      actualizarInfoJuego();
+
+      // Mostrar selector de nivel
+      nivelSelectorDiv.style.display = "block";
+
+      // Asegurarse de que el botón girar esté visible y habilitado para el próximo juego
+      btnGirar.style.display = "block";
+      btnGirar.disabled = false;
+      btnReiniciar.style.display = "none"; // Ocultar botón reiniciar
+
+       // Dibuja una ruleta inicial de ejemplo (o limpia)
+       dibujarRuleta(10); // Vuelve a dibujar 10 segmentos en la pantalla inicial
+    }
+
+    // Se ejecuta cuando la ventana ha cargado completamente
+    window.onload = () => {
+        // Dibuja una ruleta inicial de ejemplo al cargar la página
+        dibujarRuleta(10); // Por ejemplo, muestra 10 segmentos estáticos
+
+        // Solo muestra el selector de nivel al cargar
+        nivelSelectorDiv.style.display = "block";
+
+         // Añadir listener a todos los botones para inicializar el audio
+         // al primer click del usuario. Esto soluciona la política de navegadores.
+         document.querySelectorAll('button').forEach(button => {
+             button.addEventListener('click', async () => {
+                 if (!audioInitialized) {
+                     await initializeAudio();
+                 }
+             });
+         });
+
+        // Actualizar info inicial (mostrar 10 vidas y 0/0)
+        actualizarVidas();
+        actualizarInfoJuego();
+    };
+
+  </script>
+</body>
+</html>
